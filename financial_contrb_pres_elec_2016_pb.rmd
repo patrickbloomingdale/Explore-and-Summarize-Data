@@ -1,0 +1,836 @@
+# Texas 2016 US Presidential Campaign Contribution Analysis 
+## by Patrick Bloomingdale
+This project is part of Udacity's Data Analyst Nanodegree <br>
+**Term:** 2 <br>
+**Project:** 2 <br>
+**Due Date:** November 13, 2018
+
+========================================================
+
+## Introduction
+
+For this project, I will conduct an exploratory data analysis (EDA) and create 
+an RMD file that explores the variables, structure, patterns, oddities, and 
+underlying relationships the following dataset: <br>
+> [**2016 Presidential Campaign Finance Data**](https://classic.fec.gov/disclosurep/PDownload.do)
+<br>
+
+### Dataset Considerations
+
+**CONTRIBUTION LIMITS**<br>
+[**Contribution limits for 2015-2016**](https://www.fec.gov/updates/contribution-limits-for-2015-2016/) <br>
+Under the Federal Election Campaign Act (the Act), the limits on contributions 
+made by persons to candidates (increased to $2,700 per election, per candidate)
+(52 U.S.C. § 30116(a)(1)(A)). The per-election limits on contributions to 
+candidates are in effect for the two-year election cycle beginning the day after 
+the general election and ending on the date of the next general election 
+(November 5, 2014 - November 8, 2016). All other contribution limits are in 
+effect for the two-calendar-year period beginning on January 1, 2015 and ending 
+on December 31, 2016.
+<br>
+
+[**2016 PRESIDENTIAL ELECTION RESULTS FOR THE UNITED STATES**](https://www.270towin.com/2016_Election/) <br>
+The United States presidential election of 2016 was held on Tuesday, 
+November 8, 2016. The Republican canidate Donald Trump defeated the Democratic 
+canidate Hillary Clinton. <br>
+
+The table below represents the results from the 2016 presidential election. 
+The only canidates included in this table are the ones that received the 
+parties nomination.
+
+| Candidate           | Party         | Electoral Votes | Popular Votes |
+| ------------------- | ------------- | ---------------:| -------------:|
+| Donald J. Trump     | Republican    | 304   		    | 62,980,160    |
+| Hillary R. Clinton  | Democratic    | 227   		    | 65,845,063    |
+| Gary Johnson        | Libertarian   | 0   		    | 4,488,931     |
+| Jill Stein  		  | Green    	  | 0  			    | 1,457,050     |
+| Evan McMullin  	  | Independent   | 0   		    | 728,830       |
+
+<br>
+[**2016 PRESIDENTIAL ELECTION RESULTS FOR THE STATE OF TEXAS**](https://www.politico.com/2016-election/results/map/president/texas/) <br>
+The table below represents Texas' results from the 2016 presidential election. 
+The only canidates included in this table are the ones that received the 
+parties nomination.
+
+| Candidate           | Party         | Popular Votes  | Percentage |
+| ------------------- | ------------- | --------------:| ----------:|
+| Donald J. Trump     | Republican    | 4,681,590      | 52.6       |
+| Hillary R. Clinton  | Democratic    | 3,867,816      | 43.4       |
+| Gary Johnson        | Libertarian   | 282,524   	   | 3.2        |
+| Jill Stein  		  | Green    	  | 71,307 		   | 0.8        |
+| Evan McMullin*  	  | Independent   | na   		   | na         |
+*Dataset did not contain any votes for canidate
+
+**Party Affiliation** <br>
+To ensure I have the corrected canidate associated with the correct party, 
+I downloaded a list of all the canidates with their party affiliation from the 
+[Federal Election Commission](https://www.fec.gov/data/advanced/?tab=candidates)
+, then compared it to the list of canidate names to assign a party affiliation.
+
+**Initial Exploratory Questions** <br>
+1. Is there a relationship between campaign contributions and party affiliation? <br>
+2. What is the total ammount of campaign contributions per canidate? <br>
+3. Campaign contributions and gender? <br>
+4. Campaign contributions and occupation? <br>
+
+**ADDITIONAL RESOURCES** <br>
+[**Democratic Convention**](http://www.thegreenpapers.com/P16/D)<br>
+[**Democratic Convention - Texas**](http://www.thegreenpapers.com/P16/TX-D#TX-D-STATEWIDE)<br>
+[**Republican Convention**](http://www.thegreenpapers.com/P16/R)<br>
+[**Republican Convention - Texas**](http://www.thegreenpapers.com/P16/TX-R#TX-R-STATEWIDE)<br>
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+#set knitr options for figure sizes
+knitr::opts_chunk$set(fig.width=9,fig.height=5,fig.path='Figs/',
+                      fig.align='center',tidy=TRUE,
+                      echo=FALSE,warning=FALSE,message=FALSE)
+
+#load packages
+library(ggplot2)
+library(gender)
+#install_github("ropensci/genderdata")
+library(genderdata)
+library(gridExtra)
+library(dplyr)
+#install.packages("stringi", repos="http://cran.rstudio.com/", dependencies=TRUE)
+library(remotes)
+library(zipcode)
+library(aod)
+library(scales)
+library(tidyr)
+
+options(scipen = 999)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Load_the_Data}
+# Load the Data
+tx <- read.csv("P00000001-TX.csv", row.names = NULL)
+colnames(tx) <- c(colnames(tx)[-1],"X")
+tx$X <- NULL
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# drop columns not going to use
+drops <- c("cmte_id","receipt_desc", "memo_cd", "memo_text")
+tx <- tx[ , !(names(tx) %in% drops)]
+```
+
+# Univariate Plots Section
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#type of object, observations, variables
+str(tx)
+```
+
+**FINDINGS** <br>
+The dataset contains the following: <br>
+ - 548,396 observations (rows) and 14 variables (columns)<br>
+ - 25 Canidates<br>
+ - 129,927 Contributors<br>
+ 
+##  1. Contribution Amounts (Univariate) 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plot_1a}
+#contribution amount histogram before removing negative values
+ggplot(aes(x = contb_receipt_amt), 
+       data = tx) +
+  geom_histogram(bins = 50) +
+  xlab('Contribution Amount') +
+  ggtitle('Number of Contribution Amounts Received - Histogram')
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#determine the number of negative contributions 
+sum(tx$contb_receipt_amt < 0)
+```
+
+**FINDINGS**<br>
+The histogram above shows that the dataset has negative contribution amounts. I 
+am going to remove the 12,084 values less than zero to get a better idea of what 
+the contributions look like. Then I am going to use a boxplot to look for any 
+outliers.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#remove observations that have contribution amounts less than zero
+tx <- tx[tx$contb_receipt_amt > 0,]
+#check to see if removed
+sum(tx$contb_receipt_amt < 0)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plot_1b}
+#contribution amount boxplot with negative values removed
+#showing outliers
+ggplot(aes(x = 1, y = contb_receipt_amt), 
+       data = tx) +
+  geom_boxplot() +
+  ggtitle('Contribution Amounts Received - Boxplot')
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#determine the number of contributions greater than 2700
+sum(tx$contb_receipt_amt >= 2700)
+```
+
+**FINDINGS**<br>
+The boxplot above shows that their are lots of outliers making it hard to get a 
+detailed analysis of the contributions.  As stated earlier in the `Introduction` 
+section, the maximum amount an individual can contribute is `$2,700`. I am going
+to remove the 10,093 contributions that are greater than the $2,700 because they 
+should have been refunded.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#remove observations that excede the limit of 2,700
+tx <- tx[tx$contb_receipt_amt <= 2700,]
+#check to see if removed
+sum(tx$contb_receipt_amt > 2700)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plot_1c}
+#summary of contb_receipt_amt
+summary(tx$contb_receipt_amt)
+
+#contribution amount histogram using log10
+ggplot(aes(x = contb_receipt_amt), 
+       data = tx) +
+  geom_histogram(bins = 50) +
+  scale_x_log10() +
+  ggtitle('Contribution Amount (Log10) - Histogram') +
+  xlab('Contribution Amount') +
+  ylab('Number of Contributions')
+```
+
+**FINDINGS**<br>
+By using scale_x_log10() I was able to get a better look at the distribution of 
+contributions. <br> 
+ - More than half the contributions were less than $40.00 (Median) <br>
+ - Approximately 25% of the data values are less than or equal to $25.00 
+ (First Quartile) <br>
+ - Approximately 25% of the data values are less than or equal to $100.00 
+ (Third Quartile) <br>
+ 
+I have determined that I need to add more variables and clean up others to do a 
+more detailed analysis.
+
+##  2. Contributions to Party (Univariate) 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plot_2}
+# create party variables
+democrat <- c("Clinton, Hillary Rodham", "Lessig, Lawrence", 
+              "O'Malley, Martin Joseph", "Sanders, Bernard", 
+              "Webb, James Henry Jr.")
+tx$party <- ifelse(tx$cand_nm %in% democrat, "Democrat", "Republican")
+tx$party[tx$cand_nm %in% c("Stein, Jill", "McMullin, Evan", 
+                           "Johnson, Gary")] <- 'Other'
+
+# Create party dataset
+party_aff <- group_by(tx, party)
+tx.contr_party <- summarize(party_aff,
+                               sum_party = sum(contb_receipt_amt),
+                               number_of_candidate = length(unique(cand_id)), 
+                               mean_party = sum_party/number_of_candidate, 
+                               n = n())
+
+#total contributions
+sum(tx.contr_party$n)
+
+# contr_party table
+tx.contr_party
+
+#number of contributios to party bar chart
+ggplot(aes(x = party, y = n), 
+       data = tx.contr_party) +
+  geom_bar(stat = 'identity') +
+  geom_text(stat = 'identity', aes(label = n),
+            data = tx.contr_party, vjust = -0.4) +
+  xlab('Party') +
+  ylab('Number of Contributions') +
+  ggtitle('Number of Contributions to Party') 
+```
+
+**FINDINGS**<br>
+ - The total number of contributions made was approximately 517,647<br> 
+ - The Democratic Party had the most contributions at 271,863<br>
+ - The Republican Party had the second most contributions 243,948<br> 
+ - All other parties had only 1,836 contributions<br>
+ 
+##  3. Contributions to Canidate (Univariate) 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plot_3}
+#table of canidates
+table(tx$cand_nm)
+
+#number of contributions to canidate bar chart
+ggplot(aes(x = cand_nm), 
+       data = tx) + 
+  geom_bar() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab('candidate') +
+  ylab('Number of Contributions') +
+  ggtitle('Number of Contributions by Candidate')
+```
+
+**FINDINGS**
+<br>
+ - Hillary Clinton had the most contributions at 194,289 <br>
+ - Ted Cruz had the second most contributions at 127,925 <br>
+ - Bernard Sanders had the third most contributions at 77,278 <br>
+ - Donald Trum had the forth most contributions at 73,443 <br>
+ - Benjamin Carson has the fifth most contributions at 22,471 <br>
+
+##  4. Contributions by Gender (Univariate)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plot_4}
+# get contributor's first name to determine gender 
+tx$contbr_first_nm <- sub(" .*", "", sub(".*, ", "", tx$contbr_nm))
+
+# create gender dataset
+gender_df <- gender(tx$contbr_first_nm, method = 'ssa', c(1920, 1997),
+                       countries = 'United States')
+gender_df <- unique(gender_df)
+names(gender_df)[1] <- 'contbr_first_nm'
+tx <- inner_join(tx, gender_df, by = 'contbr_first_nm')
+
+#create tx.contr_gen
+gender_group <- group_by(tx, gender)
+tx.contr_gen <- summarize(gender_group, 
+                             sum_gen = sum(contb_receipt_amt),
+                             n_gen = n())
+tx.contr_gen
+
+#number of contributions by gender bar chart
+ggplot(aes(x = gender, y = n_gen), 
+       data = tx.contr_gen, vjust = -0.4) +
+  geom_bar(stat = 'identity') +
+  geom_text(aes(label = n_gen), stat = 'identity', 
+            data = tx.contr_gen, vjust = -0.4) +
+  xlab('Gender') +
+  ylab('Number of Contributions') +
+  ggtitle('Number of Contributions by Gender') 
+```
+
+**FINDINGS**<br>
+Of the total 517,647 contributions: <br>
+ - Females accounted for approximately 243,640 (47%) of contributions<br>
+ - Males accounted for approximately 274,007 (53%) of contributions<br>
+
+##  5. Contributions by Occupation (Univariate)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Univariate_Plot_5}
+# create occupation dataset
+occ_group <- group_by(tx, contbr_occupation)
+tx.contr_occ <- summarize(occ_group, 
+                              sum_occu = sum(contb_receipt_amt), 
+                              mean_occu = mean(contb_receipt_amt), 
+                              n = n())
+tx.contr_occ <- subset(tx.contr_occ, contbr_occupation != "INFORMATION REQUESTED")
+tx.contr_occ <- head(arrange(tx.contr_occ,desc(n)), n = 5)
+tx.contr_occ$contbr_occupation <- ordered(tx.contr_occ$contbr_occupation, 
+                                              levels = c("RETIRED", 
+                                                         "NOT EMPLOYED", 
+                                                         "ATTORNEY", 
+                                                         "HOMEMAKER", 
+                                                         "ENGINEER"))
+
+contr_occ <- c("RETIRED", "NOT EMPLOYED", "ATTORNEY", "HOMEMAKER", "ENGINEER")
+
+#tx.contr_occ table
+tx.contr_occ
+
+#top five contributors by occupation
+ggplot(aes(x = contbr_occupation, y = n), 
+       data = tx.contr_occ) +
+  geom_bar(stat = 'identity') +
+  xlab('Occupations') +
+  ylab('Number of Contributors') +
+  ggtitle('Top Five Contributors by Occupation') 
+```
+
+**FINDINGS**<br>
+Since there were 16,992 different occupations listed in the data set I decided 
+to only analyze the top five contributor occupations:<br>
+ - Retired at 135,939<br>
+ - Not Employed at 22,635<br>
+ - Attorney at 13,516<br>
+ - Homemaker at 10,358<br>
+ - Engineer at 8,484<br>
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+ - 548,396 observations (rows) and 14 variables (columns)<br>
+ - 25 Canidates<br>
+ - 129,927 Contributors<br>
+ 
+### What is/are the main feature(s) of interest in your dataset?
+ The maid features of the dataset I am interested in are
+ `contribution amounts`(contb_receipt_amt), the `contributor` (contbr_nm), and
+ the `canidate` (cand_nm).
+ 
+### What other features in the dataset do you think will help support your 
+### investigation into your feature(s) of interest?
+Other features in the dataset that will help support my investigation include:<br>
+ - Total Number of Contributions to Party<br> 
+ - Number of Contributions to Candidate<br>
+ - Number of Contributions by Gender<br>
+ - Top Occupations by Number of Contributors<br>
+ - Date Contributions were Made<br>
+
+### Did you create any new variables from existing variables in the dataset?
+**I created the following variables for a more detailed analysis:**<br>
+-`party:` candidate party affilliation (Democrat, Republican, Other)<br>
+-`gender:` contributor gender (male, female)<br>
+
+### Of the features you investigated, were there any unusual distributions?
+ - There were 10,093 contributions that were greater than the contribution 
+ limit of $2,700 so I removed them.
+ - There were 12,084 contributions that were negative values so I removed them.
+
+### Did you perform any operations on the data to tidy, adjust, or change the 
+### form of the data? 
+**I removed the following variables:**<br>
+-`receipt_desc`<br>
+-`memo_cd`<br>
+-`X`<br>
+-`proportion_male`<br>
+-`proportion_female`<br>
+-`year_min`<br>
+-`year_max`<br>
+
+**I cleaned the following variables:**<br>
+-`contb_receipt_dt:` now the date is in %d-%b-%y format<br>
+-`contb_receipt_amt:` removed all negative contributions and contributions 
+greater than the limit of $2700<br>
+
+# Bivariate Plots Section
+
+## 1. Contribution Amount and Party (Bivariate)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plot_1a}
+# contribution amount by party table
+tx.contr_party
+
+# contribution amount by party bar chart
+ggplot(aes(x = party, y = sum_party/1000),
+       data = tx.contr_party) +
+  geom_bar(stat = 'identity') +
+  geom_text(stat = 'identity', 
+            aes(label = round(sum_party/1000)),
+            data = tx.contr_party, vjust = -0.4) +
+  xlab('Party') +
+  ylab('Contribution Received (Thousands)') +
+  ggtitle('Total Contribution Amount to Party') 
+```
+
+**FINDINGS** <br>
+ - The Republican Party raised approximately $47 million through contributions<br>
+ - The Democratic Party raised approximately $25 million through contributions<br>
+ - All other parties raised approximately $44 thousand through contributions<br>
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plot_1b}
+#summary of party contrb amount
+by(tx$contb_receipt_amt, tx$party, summary)
+
+#Contribution Amount (Log10) to Party Boxplot
+ggplot(aes(x = party, y = contb_receipt_amt),
+       data = tx) +
+  geom_boxplot() +
+  scale_y_log10() +
+  xlab('party') +
+  ylab('Contribution Amount') +
+  ggtitle('Contribution Amount (Log10) to Party Boxplot') 
+```
+
+**FINDINGS** <br>
+The Republican Parties mean and median contributions were higher than the 
+Democratic Parties. You can also see from the boxplot above that the other 
+parties mean and median was higher than both Republicans and Democrats. 
+
+## 2. Contribution Amount and Canidate (Bivariate)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plot_2a}
+# create candidate dataset
+can_group <- group_by(tx, party, cand_nm)
+tx.contr_can <- summarize(can_group, 
+                             sum_can = sum(contb_receipt_amt), 
+                             mean_can = mean(contb_receipt_amt),
+                             n = n())
+tx.contr_can <- arrange(tx.contr_can, sum_can)
+
+# contr_by_can table
+tx.contr_can
+
+#Contribution Received by Candidate bar chart
+ggplot(aes(x = cand_nm, y = sum_can/1000), 
+       data = tx.contr_can) +
+  geom_bar(stat = 'identity') +
+  scale_y_continuous(limits = c(0, 23000)) + 
+  xlab('Candidate') +
+  ylab('Contribution Received (Thousands)') +
+  ggtitle('Contribution Received by Candidate') +
+  coord_flip()
+```
+
+**FINDINGS** <br>
+The canidates that recieved the most contributions were: <br>
+ - H. Clinton totaled approximately $21.8 million <br> 
+ - T. Cruz totaled approximately $18.3 million <br> 
+ - D. Trump totaled approximately $15.3 million <br> 
+ - J. Bush totaled approximately $3.6 million <br> 
+ - B. Sanders totaled approximately $3.4 million <br> 
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plot_2b}
+#summary of cand_nm contrb amount
+by(tx$contb_receipt_amt, tx$cand_nm, summary)
+
+#Contribution Amount to Candidate box plot
+ggplot(aes(x = cand_nm, y = contb_receipt_amt), 
+       data = tx) + 
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+  xlab('candidate') +
+  ylab('Contribution Amount') +
+  ggtitle('Contribution Amount to Candidate')
+```
+
+**FINDINGS**<br>
+ - Canidates with the highest median contributions:
+ > C. Christie, R. Perry, R. Santorum, J. Bush, and L. Graham
+ - Canidates with the lowest median contributions:
+ > B. Carson, H. Clinton, T. Cruz, R. Paul, and B. Sanders.
+ - Both Clinton's and Sanders' outliers are almost a solid black line showing 
+ that they received a lot of small contribution amounts.
+ 
+## 3. Contribution Amount by Gender (Bivariate)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plot_3a}
+by(tx$contb_receipt_amt, tx$gender, summary)
+
+#Contribution Amount by Gender Boxplot
+ggplot(aes(x = gender, y = contb_receipt_amt),
+       data = tx) +
+  geom_boxplot() +
+  xlab('gender') +
+  ylab('Contribution Amount') +
+  ggtitle('Contribution Amount by Gender Boxplot') +
+  coord_cartesian(ylim = c(0, 100))
+```
+
+**Findings**
+By looking at the box plot and summary statistics above you can see the 
+following differences between female and males:
+ - the median contribution of males at $50.00 was higher than females the median 
+ contributions at $35.00.
+ - males also had a higher average contribution amount of 160.96 compared to 
+ females at $119.44.  This is a difference of $41.52.
+
+## 4. Contribution Amount by Occupation (Bivariate)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Bivariate_Plot_4}
+#tx.contr_occ table
+tx.contr_occ
+
+#top five contributors by occupation
+ggplot(aes(x = contbr_occupation, y = sum_occu/1000), 
+       data = tx.contr_occ) +
+  geom_bar(stat = 'identity') +
+  xlab('Occupations') +
+  ylab('Contribution Amount (Thousands)') +
+  ggtitle('Contribution Amount by Top 5 Occupations')
+```
+
+**FINDINGS** <br>
+The occupation that contributed the highest amount was retired people 
+contributing over $14.5 million. This was followed by: <br>
+ - Attorney at $3,970,684<br>
+ - Homemaker at $3,396,749<br>
+ - Engineer at $1,178,076<br>
+ - Not Employed at $1,115,696<br>
+ 
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the 
+### investigation. How did the feature(s) of interest vary with other features  
+### in the dataset?
+
+**Party Affiliation**<br>
+The Republican Party raised the most money at $47 million through contributions.
+> Donald Trump (Republican) won the 2016 Presidential election.
+<br>
+
+**Canidate** <br>
+Even though Donald Trump was the Republican party nomination, Ted Cruz raised
+more money in Texas.  This might be due to the fact that Ted Cruz was a Texas
+Senator when the election took place.
+
+**Contributor Gender** <br>
+Males accounted for more contributions and contributed larger amounts than 
+females.
+
+**Contributor Occupation** <br>
+Retired people accounted for the most contributors by occupation.
+
+### Did you observe any interesting relationships between the other features 
+### (not the main feature(s) of interest)? 
+The one that stood out most was when looking at the relationship between the 
+canidate and contribution amounts I found that had Hillary Clinton and Bernard
+Sanders had a lot of outliers showing that they received a lot of small 
+contribution amounts.
+
+### What was the strongest relationship you found?
+Males accounted for more contributions and contributed larger amounts than 
+females.
+
+# Multivariate Plots Section
+
+## 1. Contribution amounts by Canidate and Date (Multivariate)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plot_1}
+# adjust contb_receipt_dt
+tx$contb_receipt_dt <- as.Date(tx$contb_receipt_dt, format = "%d-%b-%y")
+
+# create top_five_can
+top_five_can <- c("Clinton, Hillary Rodham", "Cruz, Rafael Edward 'Ted'", 
+                  "Trump, Donald J.", "Bush, Jeb", "Sanders, Bernard")
+
+## create tx.top_five_can dataset with general election date filter
+tx.top_five_can <- tx %>%
+  filter(contb_receipt_dt >= as.Date("2014-11-05") &
+           contb_receipt_dt <= as.Date("2016-11-08") & 
+                                         cand_nm %in% top_five_can)%>%
+  group_by(cand_nm, contb_receipt_dt) %>%
+  summarize(sum_top_can = sum(contb_receipt_amt),
+            n = n())
+
+# Contribution Amount by Canidate, by Contribtution Date
+ggplot(aes(x = contb_receipt_dt, y = sum_top_can/1000, color = cand_nm), 
+       data = tx.top_five_can) +
+  geom_jitter(alpha = 1/10) +
+  geom_smooth(method = 'loess') +
+  scale_y_continuous() +
+  xlab('Date of Contribution') +
+  ylab('Contribution Amount (Thousands)') +
+  ggtitle('Contribution Amount by Canidate, by Contribtution Date')
+
+# Contribution Amount by Canidate, by Contribtution Date
+# added limits to y axis
+ggplot(aes(x = contb_receipt_dt, y = sum_top_can/1000, color = cand_nm), 
+       data = tx.top_five_can) +
+  geom_jitter(alpha = 1/10) +
+  geom_smooth(method = 'loess') +
+  scale_y_continuous(limits = c(0, 150)) +
+  xlab('Date of Contribution') +
+  ylab('Contribution Amount (Thousands)') +
+  ggtitle('Contribution Amount by Canidate, by Contribtution Date')
+```
+
+**FINDINGS** <br>
+Based on the two plots above, Ted Cruz began raising money before the other 
+canidates. Around December of 2015, Hillary Clinton's contributions began to 
+increase, and soon after Bernard Sanders' contributions began to decline.  
+Donald Trumps contributions began to increase around March of 2016, overtake
+all other canidates around July 2017 (except for Hillary Clinton).
+
+## 2. Contribution amounts by Occupation and Date (Multivariate)
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, Multivariate_Plot_2}
+## create tx.contr_occ dataset with general election date filter
+tx.contr_occ <- tx %>%
+  filter(contbr_occupation %in% contr_occ)%>%
+  group_by(contbr_occupation, contb_receipt_dt) %>%
+  summarize(sum_contb_amt = sum(contb_receipt_amt),
+            n = n())
+
+# Contribution Amount by Top 5 Occupation, by Contribtution Date
+ggplot(aes(x = contb_receipt_dt, y = sum_contb_amt/1000, 
+                 color = contbr_occupation), 
+             data = tx.contr_occ) +
+  geom_jitter(alpha = 1/10) +
+  geom_smooth(method = 'loess') +
+  scale_y_continuous(limits = c(0, 50)) +
+  xlab('Date of Contribution') +
+  ylab('Contribution Amount (Thousands)') +
+  ggtitle('Contribution Amount by Top 5 Occupation, by Contribtution Date')
+```
+
+**FINDINGS** <br>
+**Retired** <br>
+ - Most contributions began coming in towards the end of 2014<br>
+ - Contributions spiked towards the end of 2015, leveled off, and then began to 
+ increase towards the middle of 2016 <br>
+
+**Attorney** <br>
+ - Contributions stayed steady throughout the general election period, but began 
+ to increase around July 2016 <br>
+
+**Homemaker** <br>
+ - Contributions spiked around July 2015, leveled off, and then began to decline 
+ steadily starting around January 20 <br>
+
+**Engineer** <br>
+ - Contributions stayed steady throughout the general election.<br>
+
+**Not Employed** <br>
+ - Contributions spiked and began to steadily decline starting around March 
+ 2016 <br>
+ 
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the
+### investigation. Were there features that strengthened each other in terms of
+### looking at your feature(s) of interest?
+By adding the date the contribution was received I was able to see when the 
+contributions came in and how the amounts compared between candidates and
+occupations.
+
+It was noticeable that Ted Cruz began raising money before the other 
+candidates. Around December of 2015, Hillary Clinton's contributions began to 
+increase around December of 2015 while Bernard Sanders' contributions began to 
+decline. Donald Trumps contributions began to increase around March of 2016, 
+overtake all other candidates around July 2017 (except for Hillary Clinton).
+
+It was also noticeable that retired people overtook all other occupations in the
+amount contributed starting around March 2015 and continued to contribute the 
+all the way up to the general election.
+
+### Were there any interesting or surprising interactions between features?
+- Ted Cruz receiving contributions in January of 2015, the next canidate
+began receiving contributions around March 2015.
+
+# Final Plots and Summary
+
+### Plot One - Contribution Amount by Gender
+```{r echo=FALSE, message=FALSE, warning=FALSE,  Plot_One}
+by(tx$contb_receipt_amt, tx$gender, summary)
+
+#Contribution Amount by Gender Boxplot
+ggplot(aes(x = gender, y = contb_receipt_amt, fill = gender),
+       data = tx) +
+  geom_boxplot() +
+  xlab('Gender') +
+  ylab('Contribution Amount') +
+  ggtitle('Contribution Amount by Gender Boxplot') +
+  coord_cartesian(ylim = c(0, 100)) +
+  scale_fill_manual(values = c('pink', 'blue')) +
+  theme(legend.position = "none")
+```
+
+### Description One - Contribution Amount by Gender
+I chose the Contribution Amount by Gender Box Plot because it shows there is 
+a relationship between the persons gender and the contributions being made. <br>
+
+What I discovered was: <br>
+ - the median contribution of males at $50.00 was higher than females the median 
+ contributions at $35.00. <br>
+ - males also had a higher average contribution amount of 160.96 compared to 
+ females at $119.44.  This is a difference of $41.52.<br>
+ 
+### Plot Two - Contribution Amount by Top 5 Occupations
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,  Plot_Two}
+tx.contr_occ <- summarize(occ_group, 
+                              sum_occu = sum(contb_receipt_amt), 
+                              mean_occu = mean(contb_receipt_amt), 
+                              n = n())
+tx.contr_occ <- subset(tx.contr_occ, contbr_occupation != "INFORMATION REQUESTED")
+tx.contr_occ <- head(arrange(tx.contr_occ,desc(n)), n = 5)
+tx.contr_occ$contbr_occupation <- ordered(tx.contr_occ$contbr_occupation, 
+                                              levels = c("RETIRED", 
+                                                         "NOT EMPLOYED", 
+                                                         "ATTORNEY", 
+                                                         "HOMEMAKER", 
+                                                         "ENGINEER"))
+
+#top five contributors by occupation
+ggplot(aes(x = contbr_occupation, y = sum_occu/1000, fill = contbr_occupation), 
+       data = tx.contr_occ) +
+  geom_bar(stat = 'identity', color = 'darkblue') +
+  xlab('Occupations') +
+  ylab('Contribution Amount (Thousands)') +
+  ggtitle('Contribution Amount by Top 5 Occupations') +
+  scale_fill_brewer(palette = "Blues") +
+  theme(legend.position = "none")
+```
+
+### Description Two - Contribution Amount by Top 5 Occupations
+I chose the Contribution Amount by Top 5 Occupations
+because it shows the relationship between the top five occupations.  It was 
+interesting to see that retirees total contributions of over $14.5 million was
+more than the the other top four occupations combined at over $9.6 million.
+
+### Plot Three - Contribution Amount by Canidate, by Contribtution Date
+
+```{r echo=FALSE, message=FALSE, warning=FALSE,  Plot_Three}
+# Contribution Amount by Canidate, by Contribtution Date
+ggplot(aes(x = contb_receipt_dt, y = sum_top_can/1000, fill = cand_nm), 
+       data = tx.top_five_can) +
+  geom_jitter(alpha = 1/10) +
+  geom_smooth(method = 'loess') +
+  scale_y_continuous(limits = c(0, 150)) +
+  xlab('Date of Contribution') +
+  ylab('Contribution Amount (Thousands)') +
+  ggtitle('Contribution Amount by Canidate, by Contribtution Date') 
+```
+
+### Description Three - Contribution Amount by Canidate, by Contribtution Date
+I chose the Contribution Amount by Canidate, by Contribtution Date because
+it shows the relationship between the top five canidates that received the 
+highest contribution amounts. By adding the date of contribution to the analysis 
+I was able to determine how much and when the contributions were received.
+
+Ted Cruz began raising money before the other canidates. Around December of 
+2015, Hillary Clinton's contributions began to increase, and soon after 
+Bernard Sanders' contributions began to decline.  Donald Trumps contributions 
+began to increase around March of 2016, overtake all other canidates around July 
+2017 (except for Hillary Clinton).
+
+# Reflection
+
+I was able to find relationships between: <br>
+ - number of contributions and party affiliation <br>
+ - number of contributions and presidential canidate <br>
+ - number of contributions and contributor gender <br>
+ - number of contributions and contributor occupation <br>
+ - contributions amounts and party affiliation <br>
+ - contributions amounts and presidential canidate <br>
+ - contributions amounts and contributor gender 
+ - contributions amounts and top five contributor occupations <br>
+ - contributions amounts, top five presidential canidate, and contribution date <br>
+ - contributions amounts, top five occupations, and contribution date <br>
+
+The dataset did not contain information that I felt was usefull to get a more
+detailed analysis. I wanted to know if gender played a part in the 2016 
+Presidential Election, so I created a gender column by taking e contributors 
+first name (contbr_first_nm), created a gender dataset (gender_df) to create 
+the column.  I first tried installing and using the gender library, but found
+out I needed to use the library `genderdata`.  The library genderdata is not 
+available from a CRAN repository for the latest version of R. 
+To install it, I used: <br>
+`library(remotes)` <br>
+`install_github("ropensci/genderdata")` <br>
+
+Since there were 16,992 different occupations listed in the data set I decided 
+to only analyze the top five contributor occupations.
+
+I removed the 10,093 contributions that were greater than the $2,700 because 
+they should have been refunded. 
+
+I also removed the 12,084 contributions that were less than zero to get a better 
+idea of what the contributions look liked.
+
+## Future Work
+
+Before I ran out of time, I wanted to look at what part of the state the 
+contributions were coming from. Taking into account that Texas zipcodes ranged 
+from 73301 to 88590 and wrote the following code and it is displayed in a 
+chunk, but commented out:<br>
+```{r}
+# tx$zip = clean.zipcodes(tx$contbr_zip)
+# tx$zip = substr(tx$zip, 1, 5)
+# tx <- subset(tx, zip >=73301 & zip < 88590)
+# data(zipcode)
+# tx <- left_join(tx, zipcode, by = 'zip')
+```
+Hopefully, I will come back to this project and do this part of the analysis.
+
+## Additional Resources
+N/A
