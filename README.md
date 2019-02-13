@@ -48,7 +48,7 @@ In this project, I used R and applied exploratory data analysis techniques in a 
 ***
 
 ## Project files
-- **P00000001-TX.csv** - dataset used for analysis
+- **P00000001-TX.zip** - dataset (CSV) used for analysis
 - **financial_contrb_pres_elec_2016_pb.rmd** - final project 
 - **financial_contrb_pres_elec_2016_pb.html** - final project 
 ***
